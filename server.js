@@ -25,6 +25,16 @@ app.use(
 
 //API endpoints
 /**
+ * @route Get /
+ * @desc Test endpoint
+ */
+app.get('/', (req, res) =>
+    res.send('http get request sent to root api endpoint')
+);
+
+app.get('/api/', (req, res) => res.send('http get request sent to api'));
+
+/**
  * @route POST api/users
  * @desc Register user
  */
@@ -133,6 +143,24 @@ app.post(
     }
 );
 
+const returnToken = (user, res) => {
+    const payload = {
+        user: {
+            id: user.id
+        }
+    };
+
+    jwt.sign(
+        payload, 
+        config.get('jwtSecret'),
+        { expiresIn: '10hr'},
+        (err, token) => {
+            if (err) throw err;
+            res.json({ token: token });
+        }
+    );
+};
+
 //Post Endpoints
 /**
  * @route Post api/posts
@@ -180,24 +208,99 @@ app.post(
     }
 );
 
-const returnToken = (user, res) => {
-    const payload = {
-        user: {
-            id: user.id
-        }
-    };
+/**
+ * @route Get api/posts
+ * @desc Get posts
+ */
+app.get('/api/posts', auth, async (req, res) => {
+    try {
+        const posts = await Post.find().sort({ date: -1 });
 
-    jwt.sign(
-        payload, 
-        config.get('jwtSecret'),
-        { expiresIn: '10hr'},
-        (err, token) => {
-            if (err) throw err;
-            res.json({ token: token });
-        }
-    );
-};
+        res.json(posts);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Sever error');
+    }
+});
 
+/**
+ * @route Get api/posts/:id
+ * @desc Get post
+ */
+app.get('/api/posts/:id', auth, async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        //make sure the post was found
+        if (!post) {
+            return res.status(404).json({ msg: 'Post not found'});
+        }
+
+        res.json(post);
+    }   catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @route DELETE api/posts/:id
+ * @desc Delete a post
+ */
+app.delete('/api/posts/:id', auth, async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        //make sure the post was found
+        if (!post) {
+            return res.status(404).json({ msg: 'Post not found'});
+        }
+
+        //Make sure the request user created the post
+        if (post.user.toString() !== req.user.id) {
+            return res.status(401).json({ msg: 'User not authorized'});
+        }
+
+        await post.remove();
+
+        res.json({ msg: 'Post Removed'});
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @route Put api/posts/:id
+ * @desc Update a post
+ */
+app.put('/api/posts/:id', auth, async (req, res) => {
+    try {
+        const { title, body } = req.body;
+        const post = await Post.findById(req.params.id);
+
+        //Make sure the post was found
+        if (!post) {
+            return res.status(404).json({ msg: 'Post not found'});
+        }
+
+        //make sure the request user created the post
+        if (post.user.toString() !== req.user.id) {
+            return res.status(401).json({ msg: 'User not authorized' });
+        }
+
+        //Update the post and return
+        post.title = title || post.title;
+        post.body = body || post.body;
+
+        await post.save();
+
+        res.json(post);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+});
 
 //connection listener
 const port = 5000;

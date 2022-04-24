@@ -48,7 +48,7 @@ authenticateUser = () => {
       .catch((error) => {
         localStorage.removeItem('user');
         this.setState({ user: null });
-        console.error('Error logging in: ${error}');
+        console.error(`Error logging in: ${error}`);
       })
   }
 }
@@ -94,7 +94,7 @@ logOut = () => {
                     <div>{data}</div>
                   </React.Fragment> :
                   <React.Fragment>
-                    Please REgister or Login
+                    Please Register or Login
                   </React.Fragment>
                 }
 
